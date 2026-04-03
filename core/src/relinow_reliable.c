@@ -102,7 +102,7 @@ void relinow_reliable_init(relinow_reliable_ctx_t* ctx, const relinow_reliable_c
     if (ctx->cfg.initial_rtt_ms == 0u) {
         ctx->cfg.initial_rtt_ms = default_cfg.initial_rtt_ms;
     }
-    if (ctx->cfg.rtt_alpha_q8 == 0u || ctx->cfg.rtt_alpha_q8 > 255u) {
+    if (ctx->cfg.rtt_alpha_q8 == 0u) {
         ctx->cfg.rtt_alpha_q8 = default_cfg.rtt_alpha_q8;
     }
 

@@ -49,30 +49,35 @@ Full protocol specification: [PROTOCOL.md](PROTOCOL.md)
 relinow/
 ├── README.md
 ├── LICENSE
-├── docs/
-│   └── PROTOCOL.md
-├── core/                    ← C library (ESP-IDF component)
+├── PROTOCOL.md
+├── core/                    ← C library + ESP-IDF transport adapter
 │   ├── CMakeLists.txt
 │   ├── include/
-│   │   └── relinow.h
+│   │   ├── relinow_packet.h
+│   │   ├── relinow_state.h
+│   │   ├── relinow_reliable.h
+│   │   └── relinow_espnow.h
 │   └── src/
-│       ├── packet.c
-│       ├── peer.c
-│       ├── reliable.c
-│       ├── unreliable.c
-│       ├── priority.c
-│       ├── channel.c
-│       ├── fragment.c
-│       ├── rtt.c
-│       └── relinow.c
-├── rust/                    ← Rust wrapper (crate)
-│   ├── Cargo.toml
-│   └── src/
-│       └── lib.rs
+│       ├── relinow_packet.c
+│       ├── relinow_state.c
+│       ├── relinow_reliable.c
+│       └── relinow_espnow.c
 ├── examples/
-│   ├── c/
-│   └── rust/
-└── tests/
+│   ├── esp32_a/             ← board A example (ESP-IDF)
+│   ├── esp32_b/             ← board B example (ESP-IDF)
+│   └── README.md
+├── tests/
+│   ├── CMakeLists.txt
+│   ├── include/
+│   ├── src/
+│   ├── fixtures/
+│   └── README.md
+├── tools/
+│   ├── build_fixtures.py
+│   └── requirements.txt
+├── TEST_MATRIX.md
+├── TEST_MATRIX.yaml
+└── TEST_VECTORS.yaml
 ```
 
 ## Run Tests from Command Line
@@ -101,14 +106,45 @@ Notes:
 - On single-config generators (Ninja/Unix Makefiles), `ctest --test-dir build/tests --output-on-failure` is usually enough.
 - Additional test details are available in `tests/README.md`.
 
+## Test on Two ESP32 Boards (ESP-NOW)
+
+Two ready-to-flash ESP-IDF examples are available:
+
+- `examples/esp32_a`
+- `examples/esp32_b`
+
+They connect ReliNow RELIABLE flow to real ESP-NOW callbacks (`send_cb`, `recv_cb`) and run retransmission polling in the main loop.
+
+Quick start:
+
+```bash
+cd examples/esp32_a
+idf.py set-target esp32
+idf.py -p <PORT_A> flash monitor
+```
+
+```bash
+cd examples/esp32_b
+idf.py set-target esp32
+idf.py -p <PORT_B> flash monitor
+```
+
+Before final test, set each board peer MAC in:
+
+- `examples/esp32_a/main/main.c` (`PEER_MAC` = board B MAC)
+- `examples/esp32_b/main/main.c` (`PEER_MAC` = board A MAC)
+
+Full hardware instructions are in `examples/README.md`.
+
 ## Roadmap
 
 - [x] Protocol specification
-- [ ] Packet serialization / deserialization
+- [x] Packet serialization / deserialization
+- [x] RELIABLE MVP (DATA + ACK + retransmission + ordering baseline)
+- [x] RTT adaptive timeout + retry backoff
 - [ ] PRIORITY mode (newest-wins)
 - [ ] UNRELIABLE mode (fire-and-forget with loss stats)
 - [ ] Channel multiplexing and scheduler
-- [ ] RELIABLE mode with ordering and retransmission
 - [ ] Fragmentation / reassembly
 - [ ] Rust wrapper
 - [ ] Benchmarks and documentation
@@ -116,12 +152,13 @@ Notes:
 ## Hardware
 
 Tested on:
-- ESP32-WROOM
+- ESP32-WROOM-32
 - ESP32-C3
+- ESP32-S3
 
 ## Status
 
-**Work in progress.** Protocol spec is complete. Implementation starting.
+**Work in progress.** Protocol spec is complete, RELIABLE MVP and ESP-NOW A/B examples are implemented.
 
 ## License
 
