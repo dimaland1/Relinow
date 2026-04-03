@@ -14,6 +14,8 @@ This folder provides:
 - `src/test_vector_loader.c`: vector fixture loader smoke test.
 - `src/test_packet_codec.c`: header encode/decode and strict validation tests.
 - `src/test_state_core.c`: static peer/channel state table tests.
+- `src/test_reliable_mvp.c`: RELIABLE MVP (DATA/ACK, retransmission, ordering, RTT/backoff) tests.
+- `src/test_reliable_state.c`: RELIABLE integration tests through peer/channel state APIs.
 - `fixtures/*.bin`: generated binary fixtures from YAML.
 
 ## Generate Fixtures

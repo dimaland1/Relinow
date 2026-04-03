@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "relinow_packet.h"
+#include "relinow_reliable.h"
 
 #define RELINOW_MAX_PEERS 20u
 #define RELINOW_MAX_CHANNELS_PER_PEER 16u
@@ -17,7 +18,8 @@ typedef enum {
     RELINOW_STATE_ERR_NOT_FOUND = 2,
     RELINOW_STATE_ERR_NO_SPACE = 3,
     RELINOW_STATE_ERR_CONFLICT = 4,
-    RELINOW_STATE_ERR_QUEUE_FULL = 5
+    RELINOW_STATE_ERR_QUEUE_FULL = 5,
+    RELINOW_STATE_ERR_WRONG_MODE = 6
 } relinow_state_err_t;
 
 typedef struct {
@@ -39,6 +41,7 @@ typedef struct {
     uint16_t expected_rx_seq;
     uint8_t has_inflight;
     uint16_t inflight_seq;
+    relinow_reliable_ctx_t reliable;
     relinow_tx_slot_t tx_queue[RELINOW_TX_QUEUE_SIZE];
     relinow_rx_slot_t rx_queue[RELINOW_RX_QUEUE_SIZE];
 } relinow_channel_state_t;
@@ -118,6 +121,52 @@ relinow_state_err_t relinow_state_enqueue_rx(
     uint8_t peer_index,
     uint8_t channel_id,
     uint16_t seq_id
+);
+
+relinow_state_err_t relinow_state_set_reliable_config(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    const relinow_reliable_config_t* cfg
+);
+
+relinow_state_err_t relinow_state_reliable_send(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint32_t now_ms,
+    relinow_reliable_tx_result_t* out_result
+);
+
+relinow_state_err_t relinow_state_reliable_on_ack(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t ack_id,
+    uint32_t now_ms
+);
+
+relinow_state_err_t relinow_state_reliable_poll(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint32_t now_ms,
+    relinow_reliable_tx_result_t* out_result
+);
+
+relinow_state_err_t relinow_state_reliable_on_data(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t seq_id,
+    relinow_reliable_rx_result_t* out_result
+);
+
+relinow_state_err_t relinow_state_reliable_get_rtt_ms(
+    const relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t* out_rtt_ms
 );
 
 #endif
