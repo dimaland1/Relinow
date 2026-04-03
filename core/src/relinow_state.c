@@ -193,6 +193,35 @@ relinow_state_err_t relinow_state_next_sequence(
     return RELINOW_STATE_OK;
 }
 
+relinow_state_err_t relinow_state_get_channel_mode(
+    const relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint8_t* out_mode
+) {
+    uint8_t i;
+    const relinow_peer_state_t* peer;
+
+    if (state == 0 || out_mode == 0 || peer_index >= RELINOW_MAX_PEERS) {
+        return RELINOW_STATE_ERR_INVALID_ARG;
+    }
+
+    peer = &state->peers[peer_index];
+    if (!peer->in_use) {
+        return RELINOW_STATE_ERR_NOT_FOUND;
+    }
+
+    for (i = 0u; i < RELINOW_MAX_CHANNELS_PER_PEER; ++i) {
+        const relinow_channel_state_t* channel = &peer->channels[i];
+        if (channel->in_use && channel->channel_id == channel_id) {
+            *out_mode = channel->mode;
+            return RELINOW_STATE_OK;
+        }
+    }
+
+    return RELINOW_STATE_ERR_NOT_FOUND;
+}
+
 relinow_state_err_t relinow_state_mark_inflight(
     relinow_state_t* state,
     uint8_t peer_index,
@@ -483,4 +512,117 @@ relinow_state_err_t relinow_state_reliable_get_rtt_ms(
     }
 
     return RELINOW_STATE_ERR_NOT_FOUND;
+}
+
+relinow_state_err_t relinow_state_unreliable_send(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t* out_seq_id
+) {
+    relinow_channel_state_t* channel;
+
+    if (state == 0 || out_seq_id == 0) {
+        return RELINOW_STATE_ERR_INVALID_ARG;
+    }
+
+    channel = relinow_find_channel_mut(state, peer_index, channel_id);
+    if (channel == 0) {
+        return RELINOW_STATE_ERR_NOT_FOUND;
+    }
+    if (channel->mode != RELINOW_MODE_UNRELIABLE) {
+        return RELINOW_STATE_ERR_WRONG_MODE;
+    }
+
+    *out_seq_id = channel->next_tx_seq;
+    channel->next_tx_seq = relinow_seq_next(channel->next_tx_seq);
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_priority_send(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t* out_seq_id,
+    uint8_t* out_replaced,
+    uint16_t* out_replaced_seq_id
+) {
+    relinow_channel_state_t* channel;
+
+    if (state == 0 || out_seq_id == 0 || out_replaced == 0 || out_replaced_seq_id == 0) {
+        return RELINOW_STATE_ERR_INVALID_ARG;
+    }
+
+    channel = relinow_find_channel_mut(state, peer_index, channel_id);
+    if (channel == 0) {
+        return RELINOW_STATE_ERR_NOT_FOUND;
+    }
+    if (channel->mode != RELINOW_MODE_PRIORITY) {
+        return RELINOW_STATE_ERR_WRONG_MODE;
+    }
+
+    *out_replaced = 0u;
+    *out_replaced_seq_id = 0u;
+    if (channel->has_inflight) {
+        *out_replaced = 1u;
+        *out_replaced_seq_id = channel->inflight_seq;
+    }
+
+    *out_seq_id = channel->next_tx_seq;
+    channel->next_tx_seq = relinow_seq_next(channel->next_tx_seq);
+    channel->has_inflight = 1u;
+    channel->inflight_seq = *out_seq_id;
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_priority_on_data(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t seq_id,
+    uint8_t* out_should_deliver
+) {
+    relinow_channel_state_t* channel;
+
+    if (state == 0 || out_should_deliver == 0) {
+        return RELINOW_STATE_ERR_INVALID_ARG;
+    }
+
+    channel = relinow_find_channel_mut(state, peer_index, channel_id);
+    if (channel == 0) {
+        return RELINOW_STATE_ERR_NOT_FOUND;
+    }
+    if (channel->mode != RELINOW_MODE_PRIORITY) {
+        return RELINOW_STATE_ERR_WRONG_MODE;
+    }
+
+    if (!channel->has_rx_seq || relinow_is_seq_newer(seq_id, channel->expected_rx_seq)) {
+        channel->has_rx_seq = 1u;
+        channel->expected_rx_seq = seq_id;
+        *out_should_deliver = 1u;
+    } else {
+        *out_should_deliver = 0u;
+    }
+
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_clear_inflight_any(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id
+) {
+    relinow_channel_state_t* channel;
+
+    if (state == 0) {
+        return RELINOW_STATE_ERR_INVALID_ARG;
+    }
+
+    channel = relinow_find_channel_mut(state, peer_index, channel_id);
+    if (channel == 0) {
+        return RELINOW_STATE_ERR_NOT_FOUND;
+    }
+
+    channel->has_inflight = 0u;
+    return RELINOW_STATE_OK;
 }

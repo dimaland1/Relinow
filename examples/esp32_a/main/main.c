@@ -18,7 +18,13 @@
 #include "relinow_espnow.h"
 
 #define RELINOW_CHANNEL 1u
-#define RELINOW_TX_PERIOD_MS 1000u
+#define RELINOW_RELIABLE_CHANNEL_ID 1u
+#define RELINOW_UNRELIABLE_CHANNEL_ID 2u
+#define RELINOW_PRIORITY_CHANNEL_ID 3u
+#define RELINOW_RELIABLE_TX_PERIOD_MS 1000u
+#define RELINOW_UNRELIABLE_BURST_PERIOD_MS 4000u
+#define RELINOW_UNRELIABLE_BURST_COUNT 3u
+#define RELINOW_PRIORITY_BURST_PERIOD_MS 1500u
 #define RELINOW_STARTUP_GUARD_MS 2500u
 
 static const char* TAG = "relinow_a";
@@ -224,8 +230,12 @@ static esp_err_t wifi_espnow_init(void) {
 
 void app_main(void) {
     uint8_t local_mac[6];
-    uint32_t last_send = 0u;
-    uint32_t counter = 0u;
+    uint32_t last_reliable_send = 0u;
+    uint32_t last_unreliable_burst = 0u;
+    uint32_t last_priority_burst = 0u;
+    uint32_t reliable_counter = 0u;
+    uint32_t unreliable_counter = 0u;
+    uint32_t priority_counter = 0u;
     uint32_t startup_guard_until = 0u;
     relinow_espnow_config_t cfg;
     esp_err_t nvs_rc;
@@ -250,30 +260,68 @@ void app_main(void) {
 
     relinow_espnow_default_config(&cfg);
     memcpy(cfg.peer_mac, PEER_MAC, 6u);
-    cfg.channel_id = 1u;
+    cfg.channel_id = RELINOW_RELIABLE_CHANNEL_ID;
+    cfg.mode = RELINOW_MODE_RELIABLE;
     cfg.on_message = on_message;
     cfg.on_tx_event = on_tx_event;
-
     ESP_ERROR_CHECK(relinow_espnow_init(&g_node, &cfg));
+    ESP_ERROR_CHECK(relinow_espnow_open_channel(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, RELINOW_MODE_UNRELIABLE, 0u));
+    ESP_ERROR_CHECK(relinow_espnow_open_channel(&g_node, RELINOW_PRIORITY_CHANNEL_ID, RELINOW_MODE_PRIORITY, 0u));
+
     startup_guard_until = now_ms() + RELINOW_STARTUP_GUARD_MS;
     ESP_LOGI(TAG, "TX startup guard: %lu ms", (unsigned long)RELINOW_STARTUP_GUARD_MS);
 
     while (1) {
         uint32_t now = now_ms();
 
-        if (now >= startup_guard_until && (now - last_send) >= RELINOW_TX_PERIOD_MS) {
-            char msg[64];
-            int n = snprintf(msg, sizeof(msg), "A->B reliable msg #%lu", (unsigned long)counter++);
-            if (n > 0) {
-                if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
-                    esp_err_t rc = relinow_espnow_send_reliable(&g_node, (const uint8_t*)msg, (uint16_t)n, now);
+        if (now >= startup_guard_until && (now - last_reliable_send) >= RELINOW_RELIABLE_TX_PERIOD_MS) {
+            char msg[96];
+            int n = snprintf(msg, sizeof(msg), "A->B reliable msg #%lu", (unsigned long)reliable_counter++);
+            if (n > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
+                esp_err_t rc = relinow_espnow_send_reliable(&g_node, (const uint8_t*)msg, (uint16_t)n, now);
+                if (rc != ESP_OK) {
+                    ESP_LOGE(TAG, "reliable send failed: %s", esp_err_to_name(rc));
+                }
+                xSemaphoreGive(g_node_lock);
+            }
+            last_reliable_send = now;
+        }
+
+        if (now >= startup_guard_until && (now - last_unreliable_burst) >= RELINOW_UNRELIABLE_BURST_PERIOD_MS) {
+            uint8_t i;
+            for (i = 0u; i < RELINOW_UNRELIABLE_BURST_COUNT; ++i) {
+                char msg[96];
+                int n = snprintf(msg, sizeof(msg), "A->B unrel telemetry #%lu.%u", (unsigned long)unreliable_counter, (unsigned)i);
+                if (n > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
+                    esp_err_t rc = relinow_espnow_send_unreliable(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, (const uint8_t*)msg, (uint16_t)n);
                     if (rc != ESP_OK) {
-                        ESP_LOGE(TAG, "send failed: %s", esp_err_to_name(rc));
+                        ESP_LOGE(TAG, "unreliable send failed: %s", esp_err_to_name(rc));
                     }
                     xSemaphoreGive(g_node_lock);
                 }
             }
-            last_send = now;
+            ++unreliable_counter;
+            last_unreliable_burst = now;
+        }
+
+        if (now >= startup_guard_until && (now - last_priority_burst) >= RELINOW_PRIORITY_BURST_PERIOD_MS) {
+            char stale_msg[96];
+            char fresh_msg[96];
+            int n_stale = snprintf(stale_msg, sizeof(stale_msg), "A->B priority stale #%lu", (unsigned long)priority_counter);
+            int n_fresh = snprintf(fresh_msg, sizeof(fresh_msg), "A->B priority fresh #%lu", (unsigned long)priority_counter++);
+
+            if (n_stale > 0 && n_fresh > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
+                esp_err_t rc_stale = relinow_espnow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)stale_msg, (uint16_t)n_stale);
+                esp_err_t rc_fresh = relinow_espnow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)fresh_msg, (uint16_t)n_fresh);
+                if (rc_stale != ESP_OK || rc_fresh != ESP_OK) {
+                    ESP_LOGE(TAG, "priority send failed stale=%s fresh=%s",
+                             esp_err_to_name(rc_stale),
+                             esp_err_to_name(rc_fresh));
+                }
+                xSemaphoreGive(g_node_lock);
+            }
+
+            last_priority_burst = now;
         }
 
         if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {

@@ -58,6 +58,11 @@ add_executable(test_reliable_state
 )
 target_link_libraries(test_reliable_state PRIVATE relinow_core)
 
+add_executable(test_non_reliable_modes
+    src/test_non_reliable_modes.c
+)
+target_link_libraries(test_non_reliable_modes PRIVATE relinow_core)
+
 include(CTest)
 enable_testing()
 
@@ -67,3 +72,4 @@ add_test(NAME relinow_test_packet_codec COMMAND test_packet_codec)
 add_test(NAME relinow_test_state_core COMMAND test_state_core)
 add_test(NAME relinow_test_reliable_mvp COMMAND test_reliable_mvp)
 add_test(NAME relinow_test_reliable_state COMMAND test_reliable_state)
+add_test(NAME relinow_test_non_reliable_modes COMMAND test_non_reliable_modes)

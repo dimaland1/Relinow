@@ -39,6 +39,7 @@ typedef struct {
     uint8_t priority;
     uint16_t next_tx_seq;
     uint16_t expected_rx_seq;
+    uint8_t has_rx_seq;
     uint8_t has_inflight;
     uint16_t inflight_seq;
     relinow_reliable_ctx_t reliable;
@@ -93,6 +94,13 @@ relinow_state_err_t relinow_state_next_sequence(
     uint8_t peer_index,
     uint8_t channel_id,
     uint16_t* out_seq
+);
+
+relinow_state_err_t relinow_state_get_channel_mode(
+    const relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint8_t* out_mode
 );
 
 relinow_state_err_t relinow_state_mark_inflight(
@@ -167,6 +175,36 @@ relinow_state_err_t relinow_state_reliable_get_rtt_ms(
     uint8_t peer_index,
     uint8_t channel_id,
     uint16_t* out_rtt_ms
+);
+
+relinow_state_err_t relinow_state_unreliable_send(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t* out_seq_id
+);
+
+relinow_state_err_t relinow_state_priority_send(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t* out_seq_id,
+    uint8_t* out_replaced,
+    uint16_t* out_replaced_seq_id
+);
+
+relinow_state_err_t relinow_state_priority_on_data(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t seq_id,
+    uint8_t* out_should_deliver
+);
+
+relinow_state_err_t relinow_state_clear_inflight_any(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id
 );
 
 #endif

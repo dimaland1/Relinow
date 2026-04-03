@@ -31,6 +31,7 @@ typedef void (*relinow_espnow_on_tx_event_cb)(
 typedef struct {
     uint8_t peer_mac[6];
     uint8_t channel_id;
+    uint8_t mode;
     uint16_t max_payload;
     relinow_reliable_config_t reliable_cfg;
     relinow_espnow_on_message_cb on_message;
@@ -72,11 +73,32 @@ esp_err_t relinow_espnow_init(
     const relinow_espnow_config_t* cfg
 );
 
+esp_err_t relinow_espnow_open_channel(
+    relinow_espnow_node_t* node,
+    uint8_t channel_id,
+    uint8_t mode,
+    uint8_t priority
+);
+
 esp_err_t relinow_espnow_send_reliable(
     relinow_espnow_node_t* node,
     const uint8_t* payload,
     uint16_t payload_len,
     uint32_t now_ms
+);
+
+esp_err_t relinow_espnow_send_unreliable(
+    relinow_espnow_node_t* node,
+    uint8_t channel_id,
+    const uint8_t* payload,
+    uint16_t payload_len
+);
+
+esp_err_t relinow_espnow_send_priority(
+    relinow_espnow_node_t* node,
+    uint8_t channel_id,
+    const uint8_t* payload,
+    uint16_t payload_len
 );
 
 esp_err_t relinow_espnow_on_receive(
