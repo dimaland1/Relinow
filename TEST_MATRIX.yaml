@@ -1,0 +1,350 @@
+meta:
+  project: ReliNow
+  protocol_version: "1.0"
+  source: TEST_MATRIX.md
+  notes:
+    - "Core coverage includes INVARIANT_001 to INVARIANT_018"
+    - "Additional tests T019-T023 are recommended hardening checks"
+
+schema:
+  required_fields:
+    - id
+    - invariant
+    - setup
+    - input
+    - expected_status
+    - expected_side_effects
+  expected_status_values:
+    - ACCEPT
+    - DISCARD
+    - ERR_INVALID_PACKET
+    - ERR_PAYLOAD_TOO_LARGE
+    - ERR_INVALID_CHANNEL
+    - ERR_INVALID_FLAGS
+    - ERR_INVALID_ACK
+
+tests:
+  core:
+    - id: T001
+      invariant: INVARIANT_001
+      description: Header size is exactly 9 bytes
+      type: negative
+      setup: Raw parser available
+      input:
+        - "Feed packet with total header bytes = 8"
+        - "Feed packet with total header bytes = 9"
+      expected_status:
+        - DISCARD
+        - ACCEPT
+      expected_side_effects:
+        - "8-byte header is rejected as invalid packet"
+        - "9-byte header is eligible for further validation"
+
+    - id: T002
+      invariant: INVARIANT_002
+      description: Version field must be 0x01
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "version=0x01"
+        - "version=0x02"
+      expected_status:
+        - ACCEPT
+        - DISCARD
+      expected_side_effects:
+        - "Unknown version is silently discarded"
+
+    - id: T003
+      invariant: INVARIANT_003
+      description: Mode must be 0x01, 0x02, or 0x03
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "mode=0x01"
+        - "mode=0x02"
+        - "mode=0x03"
+        - "mode=0x00"
+        - "mode=0x04"
+      expected_status:
+        - ACCEPT
+        - ACCEPT
+        - ACCEPT
+        - DISCARD
+        - DISCARD
+      expected_side_effects:
+        - "Invalid mode treated as invalid packet"
+
+    - id: T004
+      invariant: INVARIANT_004
+      description: Type must be in range 0x01..0x05
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "type=0x01..0x05"
+        - "type=0x00"
+        - "type=0x06"
+      expected_status:
+        - ACCEPT
+        - DISCARD
+        - DISCARD
+      expected_side_effects:
+        - "Out-of-range type rejected"
+
+    - id: T005
+      invariant: INVARIANT_005
+      description: Reserved flags bit3 must be 0
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "flags.bit3=0"
+        - "flags.bit3=1"
+      expected_status:
+        - ACCEPT
+        - DISCARD
+      expected_side_effects:
+        - "Reserved bit set leads to packet discard"
+
+    - id: T006
+      invariant: INVARIANT_006
+      description: Payload length must not exceed max_payload
+      type: boundary_negative
+      setup: max_payload configured for ESP-NOW v1/v2
+      input:
+        - "payload_len=max_payload"
+        - "payload_len=max_payload+1"
+      expected_status:
+        - ACCEPT
+        - ERR_PAYLOAD_TOO_LARGE
+      expected_side_effects:
+        - "Oversized payload is rejected"
+
+    - id: T007
+      invariant: INVARIANT_007
+      description: payload_len must match remaining bytes
+      type: negative
+      setup: Raw parser available
+      input:
+        - "Header payload_len=20, actual bytes after header=15"
+      expected_status:
+        - ERR_INVALID_PACKET
+      expected_side_effects:
+        - "Malformed packet is discarded"
+
+    - id: T008
+      invariant: INVARIANT_008
+      description: Channel ID 0xFF reserved for heartbeat only
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "DATA on channel=0xFF"
+        - "ACK on channel=0xFF"
+        - "PING on channel=0xFF"
+        - "PONG on channel=0xFF"
+      expected_status:
+        - ERR_INVALID_CHANNEL
+        - ERR_INVALID_CHANNEL
+        - ACCEPT
+        - ACCEPT
+      expected_side_effects:
+        - "Only heartbeat control packets allowed on 0xFF"
+
+    - id: T009
+      invariant: INVARIANT_009
+      description: Sequence ID wraps from 65535 to 0
+      type: positive
+      setup: Sequence counter starts at 65534
+      input:
+        - "Send 3 packets on same peer/channel"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "Observed sequence progression: 65534, 65535, 0"
+
+    - id: T010
+      invariant: INVARIANT_010
+      description: Newer comparison uses signed 16-bit delta
+      type: edge
+      setup: is_newer(a,b) helper available
+      input:
+        - "(a,b)=(0,65535)"
+        - "(a,b)=(1,0)"
+        - "(a,b)=(65535,0)"
+        - "(a,b)=(100,100)"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "Results: true, true, false, false"
+
+    - id: T011
+      invariant: INVARIANT_011
+      description: ACK packets must have payload_len=0
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "ACK payload_len=0"
+        - "ACK payload_len=1"
+      expected_status:
+        - ACCEPT
+        - ERR_INVALID_PACKET
+      expected_side_effects:
+        - "Non-zero ACK payload rejected"
+
+    - id: T012
+      invariant: INVARIANT_012
+      description: PING/PONG packets must use channel 0xFF
+      type: positive_negative
+      setup: Parser initialized
+      input:
+        - "PING channel=0xFF"
+        - "PONG channel=0xFF"
+        - "PING channel=0x01"
+        - "PONG channel=0x01"
+      expected_status:
+        - ACCEPT
+        - ACCEPT
+        - ERR_INVALID_CHANNEL
+        - ERR_INVALID_CHANNEL
+      expected_side_effects:
+        - "Non-0xFF heartbeat channel rejected"
+
+    - id: T013
+      invariant: INVARIANT_013
+      description: UNRELIABLE DATA packets must have ack_id=0
+      type: positive_negative
+      setup: Channel mode is UNRELIABLE
+      input:
+        - "DATA ack_id=0"
+        - "DATA ack_id=42"
+      expected_status:
+        - ACCEPT
+        - ERR_INVALID_ACK
+      expected_side_effects:
+        - "Invalid ack field in UNRELIABLE is rejected"
+
+    - id: T014
+      invariant: INVARIANT_014
+      description: FRAGMENT flag only valid in RELIABLE mode
+      type: positive_negative
+      setup: Modes RELIABLE, UNRELIABLE, PRIORITY available
+      input:
+        - "RELIABLE with FRAGMENT=1"
+        - "UNRELIABLE with FRAGMENT=1"
+        - "PRIORITY with FRAGMENT=1"
+      expected_status:
+        - ACCEPT
+        - ERR_INVALID_FLAGS
+        - ERR_INVALID_FLAGS
+      expected_side_effects:
+        - "Fragmentation outside RELIABLE rejected"
+
+    - id: T015
+      invariant: INVARIANT_015
+      description: LAST_FRAGMENT implies FRAGMENT
+      type: negative
+      setup: Parser initialized
+      input:
+        - "LAST_FRAGMENT=1 and FRAGMENT=0"
+      expected_status:
+        - ERR_INVALID_FLAGS
+      expected_side_effects:
+        - "Inconsistent fragment flags rejected"
+
+    - id: T016
+      invariant: INVARIANT_016
+      description: PRIORITY allows max one in-flight packet per peer/channel
+      type: state_machine
+      setup: PRIORITY channel open; packet A currently in-flight
+      input:
+        - "Send packet B before ACK for A"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "Packet A superseded/removed"
+        - "Only packet B remains in-flight"
+
+    - id: T017
+      invariant: INVARIANT_017
+      description: Serialized then deserialized header must equal original
+      type: positive
+      setup: Generate valid randomized header fixtures
+      input:
+        - "serialize(header) then deserialize(bytes)"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "All fields preserved exactly"
+
+    - id: T018
+      invariant: INVARIANT_018
+      description: All multi-byte fields are big-endian encoded
+      type: positive_byte_level
+      setup: Fixed known values for seq_id, ack_id, payload_len
+      input:
+        - "Serialize header then inspect bytes 2..8"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "seq_id, ack_id, payload_len high-byte then low-byte"
+
+  recommended:
+    - id: T019
+      invariant: ADDITIONAL_001
+      description: Fragmentation forbidden in UNRELIABLE and PRIORITY
+      type: negative
+      setup: Channel mode UNRELIABLE or PRIORITY
+      input:
+        - "Payload too large or FRAGMENT flags present"
+      expected_status:
+        - ERR_INVALID_FLAGS
+      expected_side_effects:
+        - "Sender rejects unsupported fragmentation"
+
+    - id: T020
+      invariant: ADDITIONAL_002
+      description: RELIABLE delivers to application in order only
+      type: behavioral
+      setup: RELIABLE channel with reorder buffer enabled
+      input:
+        - "Receive seq 10, 12, 11"
+      expected_status:
+        - ACCEPT
+      expected_side_effects:
+        - "seq 12 buffered until seq 11 arrives"
+        - "Application receives 10,11,12 in order"
+
+    - id: T021
+      invariant: ADDITIONAL_003
+      description: RELIABLE duplicate packets are discarded
+      type: behavioral
+      setup: RELIABLE channel expected_seq already advanced
+      input:
+        - "Receive duplicate packet with older seq"
+      expected_status:
+        - DISCARD
+      expected_side_effects:
+        - "Duplicate not delivered to application"
+        - "ACK may be re-sent"
+
+    - id: T022
+      invariant: ADDITIONAL_004
+      description: One fragmented message in-flight per channel
+      type: state_machine
+      setup: RELIABLE fragmented message A in progress
+      input:
+        - "Attempt to start fragmented message B on same channel"
+      expected_status:
+        - DISCARD
+      expected_side_effects:
+        - "B is deferred or rejected until A completes"
+
+    - id: T023
+      invariant: ADDITIONAL_005
+      description: Application cannot open channel 0xFF
+      type: api_contract
+      setup: API initialized
+      input:
+        - "relinow_open_channel(channel_id=0xFF)"
+      expected_status:
+        - ERR_INVALID_CHANNEL
+      expected_side_effects:
+        - "Reserved channel remains unavailable to app traffic"

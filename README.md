@@ -75,6 +75,32 @@ relinow/
 └── tests/
 ```
 
+## Run Tests from Command Line
+
+You can generate fixtures, build tests, and run the full suite directly from a terminal.
+
+Prerequisites:
+
+- Python 3.10+
+- CMake 3.16+
+- A C compiler toolchain (MSVC, clang, or gcc)
+
+From the repository root:
+
+```powershell
+python -m pip install -r tools/requirements.txt
+python tools/build_fixtures.py --matrix-yaml TEST_MATRIX.yaml --vector-yaml TEST_VECTORS.yaml --out-dir tests/fixtures
+cmake -S tests -B build/tests
+cmake --build build/tests
+ctest --test-dir build/tests -C Debug --output-on-failure
+```
+
+Notes:
+
+- On Windows with Visual Studio generators, keep `-C Debug` in the `ctest` command.
+- On single-config generators (Ninja/Unix Makefiles), `ctest --test-dir build/tests --output-on-failure` is usually enough.
+- Additional test details are available in `tests/README.md`.
+
 ## Roadmap
 
 - [x] Protocol specification

@@ -1,0 +1,49 @@
+meta:
+  protocol_version: "1.0"
+  notes:
+    - "Vectors for header encode/decode validation"
+
+vectors:
+  - id: V001
+    description: RELIABLE DATA HELLO example from protocol
+    expect_valid: true
+    mode: 0x01
+    type: 0x01
+    flags: 0x00
+    seq_id: 42
+    ack_id: 10
+    channel_id: 1
+    payload_hex: "48454C4C4F"
+
+  - id: V002
+    description: RELIABLE ACK for sequence 42
+    expect_valid: true
+    mode: 0x01
+    type: 0x02
+    flags: 0x00
+    seq_id: 0
+    ack_id: 42
+    channel_id: 1
+    payload_hex: ""
+
+  - id: V003
+    description: Invalid reserved flag set
+    expect_valid: false
+    mode: 0x01
+    type: 0x01
+    flags: 0x08
+    seq_id: 7
+    ack_id: 0
+    channel_id: 1
+    payload_hex: "AA"
+
+  - id: V004
+    description: PING on heartbeat channel
+    expect_valid: true
+    mode: 0x01
+    type: 0x04
+    flags: 0x00
+    seq_id: 0
+    ack_id: 0
+    channel_id: 255
+    payload_hex: ""

@@ -53,3 +53,22 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Build directories
+build/
+
+# CMake and CTest generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+DartConfiguration.tcl
+
+# Visual Studio generated project files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Generated binary fixtures
+tests/fixtures/*.bin
