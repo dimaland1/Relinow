@@ -23,8 +23,8 @@
 
 static const char* TAG = "relinow_b";
 
-/* ESP32 A STA MAC address (COM3). */
-static const uint8_t PEER_MAC[6] = {0x1C, 0xDB, 0xD4, 0xF0, 0x2D, 0x68};
+/* ESP32 A STA MAC address (COM6). */
+static const uint8_t PEER_MAC[6] = {0x88, 0x13, 0xBF, 0x25, 0x1B, 0x30};
 
 static relinow_espnow_node_t g_node;
 static SemaphoreHandle_t g_node_lock;
@@ -71,6 +71,56 @@ static const char* send_status_str(esp_now_send_status_t status) {
     return (status == ESP_NOW_SEND_SUCCESS) ? "SUCCESS" : "FAIL";
 }
 
+static const char* frame_type_str(uint8_t type) {
+    if (type == RELINOW_TYPE_DATA) {
+        return "DATA";
+    }
+    if (type == RELINOW_TYPE_ACK) {
+        return "ACK";
+    }
+    if (type == RELINOW_TYPE_NACK) {
+        return "NACK";
+    }
+    if (type == RELINOW_TYPE_PING) {
+        return "PING";
+    }
+    if (type == RELINOW_TYPE_PONG) {
+        return "PONG";
+    }
+    return "UNKNOWN";
+}
+
+static void log_raw_rx_frame(const uint8_t src_mac[6], const uint8_t* data, int len) {
+    relinow_header_t header;
+    relinow_err_t prc;
+
+    if (len < (int)RELINOW_HEADER_SIZE) {
+        ESP_LOGW(TAG, "RX raw short len=%d from %02X:%02X:%02X:%02X:%02X:%02X",
+                 len,
+                 src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+        return;
+    }
+
+    prc = relinow_decode_header(data, (size_t)len, RELINOW_ESPNOW_MAX_PAYLOAD, &header);
+    if (prc != RELINOW_ERR_OK) {
+        ESP_LOGW(TAG, "RX raw decode fail rc=%d len=%d from %02X:%02X:%02X:%02X:%02X:%02X",
+                 (int)prc,
+                 len,
+                 src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+        return;
+    }
+
+    ESP_LOGI(TAG, "RX raw %s(%u) mode=%u ch=%u seq=%u ack=%u pay=%u from %02X:%02X:%02X:%02X:%02X:%02X",
+             frame_type_str(header.type),
+             header.type,
+             header.mode,
+             header.channel_id,
+             header.seq_id,
+             header.ack_id,
+             header.payload_len,
+             src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+}
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
 static void send_cb(const esp_now_send_info_t* tx_info, esp_now_send_status_t status) {
     if (tx_info == NULL || tx_info->des_addr == NULL) {
@@ -105,21 +155,31 @@ static void send_cb(const uint8_t* mac_addr, esp_now_send_status_t status) {
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 static void recv_cb(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
+    esp_err_t rc;
     if (info == NULL || info->src_addr == NULL || data == NULL || len <= 0) {
         return;
     }
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-        (void)relinow_espnow_on_receive(&g_node, info->src_addr, data, (uint16_t)len, now_ms());
+        log_raw_rx_frame(info->src_addr, data, len);
+        rc = relinow_espnow_on_receive(&g_node, info->src_addr, data, (uint16_t)len, now_ms());
+        if (rc != ESP_OK) {
+            ESP_LOGW(TAG, "on_receive rc=%s", esp_err_to_name(rc));
+        }
         xSemaphoreGive(g_node_lock);
     }
 }
 #else
 static void recv_cb(const uint8_t* mac_addr, const uint8_t* data, int len) {
+    esp_err_t rc;
     if (mac_addr == NULL || data == NULL || len <= 0) {
         return;
     }
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-        (void)relinow_espnow_on_receive(&g_node, mac_addr, data, (uint16_t)len, now_ms());
+        log_raw_rx_frame(mac_addr, data, len);
+        rc = relinow_espnow_on_receive(&g_node, mac_addr, data, (uint16_t)len, now_ms());
+        if (rc != ESP_OK) {
+            ESP_LOGW(TAG, "on_receive rc=%s", esp_err_to_name(rc));
+        }
         xSemaphoreGive(g_node_lock);
     }
 }
@@ -127,6 +187,8 @@ static void recv_cb(const uint8_t* mac_addr, const uint8_t* data, int len) {
 
 static esp_err_t wifi_espnow_init(void) {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    const uint8_t protocol_bitmap = WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR;
+    const int8_t max_tx_power = 84;
     uint8_t primary = 0;
     wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE;
     ESP_ERROR_CHECK(esp_netif_init());
@@ -135,10 +197,13 @@ static esp_err_t wifi_espnow_init(void) {
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_protocol(WIFI_IF_STA, protocol_bitmap));
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(max_tx_power));
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
     ESP_ERROR_CHECK(esp_wifi_set_channel(RELINOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
     ESP_ERROR_CHECK(esp_wifi_get_channel(&primary, &second));
     ESP_LOGI(TAG, "WiFi STA channel=%u (target=%u)", primary, RELINOW_CHANNEL);
+    ESP_LOGI(TAG, "WiFi protocol bitmap=0x%02X tx_power=%d", protocol_bitmap, (int)max_tx_power);
 
     ESP_ERROR_CHECK(esp_now_init());
     ESP_ERROR_CHECK(esp_now_register_send_cb(send_cb));
