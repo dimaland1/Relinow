@@ -12,6 +12,7 @@
 
 #define RELINOW_ESPNOW_MAX_PAYLOAD 241u
 #define RELINOW_ESPNOW_MAX_FRAME (RELINOW_HEADER_SIZE + RELINOW_ESPNOW_MAX_PAYLOAD)
+#define RELINOW_ESPNOW_MAX_REASSEMBLY (RELINOW_ESPNOW_MAX_PAYLOAD * RELINOW_RELIABLE_MAX_PENDING)
 
 typedef void (*relinow_espnow_on_message_cb)(
     const uint8_t src_mac[6],
@@ -42,6 +43,7 @@ typedef struct {
 typedef struct {
     uint8_t in_use;
     uint16_t seq_id;
+    uint8_t flags;
     uint16_t payload_len;
     uint8_t payload[RELINOW_ESPNOW_MAX_PAYLOAD];
 } relinow_espnow_tx_cache_t;
@@ -49,6 +51,7 @@ typedef struct {
 typedef struct {
     uint8_t in_use;
     uint16_t seq_id;
+    uint8_t flags;
     uint16_t payload_len;
     uint8_t payload[RELINOW_ESPNOW_MAX_PAYLOAD];
 } relinow_espnow_rx_cache_t;
@@ -62,6 +65,13 @@ typedef struct {
     relinow_espnow_on_message_cb on_message;
     relinow_espnow_on_tx_event_cb on_tx_event;
     void* user_ctx;
+    uint8_t fragmented_tx_active;
+    uint8_t fragmented_tx_count;
+    uint16_t fragmented_tx_seq[RELINOW_RELIABLE_MAX_PENDING];
+    uint8_t reassembly_active;
+    uint16_t reassembly_first_seq;
+    uint16_t reassembly_len;
+    uint8_t reassembly_buf[RELINOW_ESPNOW_MAX_REASSEMBLY];
     relinow_espnow_tx_cache_t tx_cache[RELINOW_RELIABLE_MAX_PENDING];
     relinow_espnow_rx_cache_t rx_cache[1u + RELINOW_RELIABLE_MAX_REORDER];
 } relinow_espnow_node_t;
