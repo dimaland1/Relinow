@@ -730,3 +730,38 @@ relinow_state_err_t relinow_state_get_stats(
     return RELINOW_STATE_ERR_NOT_FOUND;
 }
 
+
+relinow_state_err_t relinow_state_scheduler_next(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint32_t now_ms,
+    uint8_t* out_channel_id,
+    relinow_reliable_tx_result_t* out_tx
+) {
+    uint8_t i;
+    relinow_peer_state_t* peer;
+    uint8_t best_idx = 0xFF;
+    uint8_t best_priority = 0xFF;
+    relinow_reliable_tx_result_t tx_res;
+
+    if (state == 0 || out_channel_id == 0 || out_tx == 0) return RELINOW_STATE_ERR_INVALID_ARG;
+    if (peer_index >= RELINOW_MAX_PEERS) return RELINOW_STATE_ERR_INVALID_ARG;
+    peer = &state->peers[peer_index];
+    if (!peer->in_use) return RELINOW_STATE_ERR_NOT_FOUND;
+
+    out_tx->event = RELINOW_RELIABLE_TX_NONE;
+
+    // Pass 1: Find retransmissions
+    for (i = 0; i < RELINOW_MAX_CHANNELS_PER_PEER; ++i) {
+        if (peer->channels[i].in_use && peer->channels[i].mode == RELINOW_MODE_RELIABLE) {
+            relinow_state_reliable_poll(state, peer_index, peer->channels[i].channel_id, now_ms, &tx_res);
+            if (tx_res.event != RELINOW_RELIABLE_TX_NONE) {
+                *out_channel_id = peer->channels[i].channel_id;
+                *out_tx = tx_res;
+                return RELINOW_STATE_OK;
+            }
+        }
+    }
+    return RELINOW_STATE_OK;
+}
+

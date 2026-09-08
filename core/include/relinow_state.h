@@ -251,4 +251,12 @@ relinow_state_err_t relinow_state_get_stats(
     relinow_stats_t* out_stats
 );
 
+relinow_state_err_t relinow_state_scheduler_next(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint32_t now_ms,
+    uint8_t* out_channel_id,
+    relinow_reliable_tx_result_t* out_tx
+);
+
 #endif

@@ -638,30 +638,25 @@ esp_err_t relinow_espnow_poll(
         }
     }
 
-    src = relinow_state_get_channel_mode(&node->state, node->peer_index, node->channel_id, &channel_mode);
-    if (src != RELINOW_STATE_OK || channel_mode != RELINOW_MODE_RELIABLE) {
-        return ESP_OK;
-    }
-
-    src = relinow_state_reliable_poll(&node->state, node->peer_index, node->channel_id, now_ms, &tx);
-    if (src != RELINOW_STATE_OK) {
-        return ESP_FAIL;
-    }
-
-    if (tx.event == RELINOW_RELIABLE_TX_RETRANSMIT) {
-        relinow_espnow_tx_cache_t* slot = relinow_tx_cache_find(node, tx.seq_id);
-        if (slot != 0u) {
-            esp_err_t erc = relinow_send_frame(node, RELINOW_MODE_RELIABLE, node->channel_id, RELINOW_TYPE_DATA, slot->flags, slot->seq_id, 0u, slot->payload, slot->payload_len);
-            if (erc != ESP_OK) {
-                return erc;
+    {
+        uint8_t sched_channel = 0;
+        src = relinow_state_scheduler_next(&node->state, node->peer_index, now_ms, &sched_channel, &tx);
+        if (src == RELINOW_STATE_OK && tx.event != RELINOW_RELIABLE_TX_NONE) {
+            if (tx.event == RELINOW_RELIABLE_TX_RETRANSMIT) {
+                relinow_espnow_tx_cache_t* slot = relinow_tx_cache_find(node, tx.seq_id);
+                if (slot != 0u) {
+                    esp_err_t erc = relinow_send_frame(node, RELINOW_MODE_RELIABLE, sched_channel, RELINOW_TYPE_DATA, slot->flags, slot->seq_id, 0u, slot->payload, slot->payload_len);
+                    if (erc != ESP_OK) {
+                        return erc;
+                    }
+                }
+            } else if (tx.event == RELINOW_RELIABLE_TX_FAILED) {
+                relinow_tx_cache_remove(node, tx.seq_id);
+            }
+            if (node->on_tx_event != 0) {
+                node->on_tx_event(tx.event, tx.seq_id, node->user_ctx);
             }
         }
-    } else if (tx.event == RELINOW_RELIABLE_TX_FAILED) {
-        relinow_tx_cache_remove(node, tx.seq_id);
-    }
-
-    if (tx.event != RELINOW_RELIABLE_TX_NONE && node->on_tx_event != 0) {
-        node->on_tx_event(tx.event, tx.seq_id, node->user_ctx);
     }
 
     return ESP_OK;
