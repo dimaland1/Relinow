@@ -8,6 +8,15 @@ static int relinow_is_valid_type(uint8_t type) {
     return type >= RELINOW_TYPE_DATA && type <= RELINOW_TYPE_PONG;
 }
 
+/**
+ * Validates a decoded header structure against protocol constraints.
+ * Checks for supported version, modes, types, valid flag combinations,
+ * and ensures payload length does not exceed the allowed maximum.
+ *
+ * @param header The decoded header structure to validate
+ * @param max_payload The maximum allowed payload size for the transport
+ * @return RELINOW_ERR_OK if valid, otherwise an error code
+ */
 relinow_err_t relinow_validate_header(const relinow_header_t* header, uint16_t max_payload) {
     if (header == 0) {
         return RELINOW_ERR_INVALID_ARG;
