@@ -34,6 +34,7 @@ typedef struct {
     uint8_t channel_id;
     uint8_t mode;
     uint16_t max_payload;
+    uint16_t fragment_timeout_ms;
     relinow_reliable_config_t reliable_cfg;
     relinow_espnow_on_message_cb on_message;
     relinow_espnow_on_tx_event_cb on_tx_event;
@@ -62,6 +63,7 @@ typedef struct {
     uint8_t peer_mac[6];
     uint8_t channel_id;
     uint16_t max_payload;
+    uint16_t fragment_timeout_ms;
     relinow_espnow_on_message_cb on_message;
     relinow_espnow_on_tx_event_cb on_tx_event;
     void* user_ctx;
@@ -71,6 +73,7 @@ typedef struct {
     uint8_t reassembly_active;
     uint16_t reassembly_first_seq;
     uint16_t reassembly_len;
+    uint32_t reassembly_start_ms;
     uint8_t reassembly_buf[RELINOW_ESPNOW_MAX_REASSEMBLY];
     relinow_espnow_tx_cache_t tx_cache[RELINOW_RELIABLE_MAX_PENDING];
     relinow_espnow_rx_cache_t rx_cache[1u + RELINOW_RELIABLE_MAX_REORDER];

@@ -152,6 +152,7 @@ static void relinow_reassembly_reset(relinow_espnow_node_t* node) {
     node->reassembly_active = 0u;
     node->reassembly_first_seq = 0u;
     node->reassembly_len = 0u;
+    node->reassembly_start_ms = 0u;
 }
 
 static esp_err_t relinow_send_frame(
@@ -205,6 +206,7 @@ void relinow_espnow_default_config(relinow_espnow_config_t* out_cfg) {
     out_cfg->mode = RELINOW_MODE_RELIABLE;
     out_cfg->channel_id = 1u;
     out_cfg->max_payload = RELINOW_ESPNOW_MAX_PAYLOAD;
+    out_cfg->fragment_timeout_ms = 5000u;
     relinow_reliable_default_config(&rel_cfg);
     out_cfg->reliable_cfg = rel_cfg;
 }
@@ -241,6 +243,7 @@ esp_err_t relinow_espnow_init(
     memcpy(node->peer_mac, cfg->peer_mac, sizeof(node->peer_mac));
     node->channel_id = cfg->channel_id;
     node->max_payload = cfg->max_payload;
+    node->fragment_timeout_ms = cfg->fragment_timeout_ms;
     node->on_message = cfg->on_message;
     node->on_tx_event = cfg->on_tx_event;
     node->user_ctx = cfg->user_ctx;
@@ -550,6 +553,7 @@ esp_err_t relinow_espnow_on_receive(
                         node->reassembly_active = 1u;
                         node->reassembly_first_seq = delivered->seq_id;
                         node->reassembly_len = 0u;
+                        node->reassembly_start_ms = now_ms;
                     }
 
                     combined_len = (uint32_t)node->reassembly_len + delivered->payload_len;
@@ -596,6 +600,10 @@ esp_err_t relinow_espnow_poll(
 
     if (node == 0) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    if (node->reassembly_active && (now_ms - node->reassembly_start_ms > node->fragment_timeout_ms)) {
+        relinow_reassembly_reset(node);
     }
 
     src = relinow_state_get_channel_mode(&node->state, node->peer_index, node->channel_id, &channel_mode);
