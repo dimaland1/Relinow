@@ -50,6 +50,10 @@ typedef struct {
 typedef struct {
     uint8_t in_use;
     uint8_t mac[6];
+    uint16_t heartbeat_interval_ms;
+    uint8_t heartbeat_miss_count_max;
+    uint32_t last_ping_sent_ms;
+    uint8_t missed_pongs;
     relinow_channel_state_t channels[RELINOW_MAX_CHANNELS_PER_PEER];
 } relinow_peer_state_t;
 
@@ -205,6 +209,26 @@ relinow_state_err_t relinow_state_clear_inflight_any(
     relinow_state_t* state,
     uint8_t peer_index,
     uint8_t channel_id
+);
+
+relinow_state_err_t relinow_state_configure_heartbeat(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint16_t interval_ms,
+    uint8_t miss_count_max
+);
+
+relinow_state_err_t relinow_state_poll_heartbeat(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint32_t now_ms,
+    uint8_t* out_should_ping,
+    uint8_t* out_peer_timeout
+);
+
+relinow_state_err_t relinow_state_on_pong(
+    relinow_state_t* state,
+    uint8_t peer_index
 );
 
 #endif

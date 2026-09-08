@@ -207,6 +207,9 @@ void relinow_espnow_default_config(relinow_espnow_config_t* out_cfg) {
     out_cfg->channel_id = 1u;
     out_cfg->max_payload = RELINOW_ESPNOW_MAX_PAYLOAD;
     out_cfg->fragment_timeout_ms = 5000u;
+    out_cfg->heartbeat_interval_ms = 0u;
+    out_cfg->heartbeat_miss_count_max = 3u;
+    out_cfg->on_peer_timeout = 0;
     relinow_reliable_default_config(&rel_cfg);
     out_cfg->reliable_cfg = rel_cfg;
 }
@@ -240,12 +243,18 @@ esp_err_t relinow_espnow_init(
         }
     }
 
+    src = relinow_state_configure_heartbeat(&node->state, node->peer_index, cfg->heartbeat_interval_ms, cfg->heartbeat_miss_count_max);
+    if (src != RELINOW_STATE_OK) {
+        return ESP_FAIL;
+    }
+
     memcpy(node->peer_mac, cfg->peer_mac, sizeof(node->peer_mac));
     node->channel_id = cfg->channel_id;
     node->max_payload = cfg->max_payload;
     node->fragment_timeout_ms = cfg->fragment_timeout_ms;
     node->on_message = cfg->on_message;
     node->on_tx_event = cfg->on_tx_event;
+    node->on_peer_timeout = cfg->on_peer_timeout;
     node->user_ctx = cfg->user_ctx;
     return ESP_OK;
 }
@@ -481,6 +490,15 @@ esp_err_t relinow_espnow_on_receive(
         return ESP_OK;
     }
 
+    if (header.channel_id == RELINOW_HEARTBEAT_CHANNEL) {
+        if (header.type == RELINOW_TYPE_PING) {
+            (void)relinow_send_frame(node, header.mode, RELINOW_HEARTBEAT_CHANNEL, RELINOW_TYPE_PONG, 0u, 0u, header.seq_id, 0, 0u);
+        } else if (header.type == RELINOW_TYPE_PONG) {
+            (void)relinow_state_on_pong(&node->state, node->peer_index);
+        }
+        return ESP_OK;
+    }
+
     src = relinow_state_get_channel_mode(&node->state, node->peer_index, header.channel_id, &channel_mode);
     if (src != RELINOW_STATE_OK || channel_mode != header.mode) {
         return ESP_OK;
@@ -604,6 +622,17 @@ esp_err_t relinow_espnow_poll(
 
     if (node->reassembly_active && (now_ms - node->reassembly_start_ms > node->fragment_timeout_ms)) {
         relinow_reassembly_reset(node);
+    }
+
+    {
+        uint8_t should_ping = 0;
+        uint8_t peer_timeout = 0;
+        relinow_state_poll_heartbeat(&node->state, node->peer_index, now_ms, &should_ping, &peer_timeout);
+        if (peer_timeout && node->on_peer_timeout) {
+            node->on_peer_timeout(node->peer_mac, node->user_ctx);
+        } else if (should_ping) {
+            (void)relinow_send_frame(node, RELINOW_MODE_UNRELIABLE, RELINOW_HEARTBEAT_CHANNEL, RELINOW_TYPE_PING, 0u, 0u, 0u, 0, 0u);
+        }
     }
 
     src = relinow_state_get_channel_mode(&node->state, node->peer_index, node->channel_id, &channel_mode);

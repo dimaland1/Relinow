@@ -626,3 +626,59 @@ relinow_state_err_t relinow_state_clear_inflight_any(
     channel->has_inflight = 0u;
     return RELINOW_STATE_OK;
 }
+
+relinow_state_err_t relinow_state_configure_heartbeat(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint16_t interval_ms,
+    uint8_t miss_count_max
+) {
+    relinow_peer_state_t* peer;
+    if (state == 0 || peer_index >= RELINOW_MAX_PEERS) return RELINOW_STATE_ERR_INVALID_ARG;
+    peer = &state->peers[peer_index];
+    if (!peer->in_use) return RELINOW_STATE_ERR_NOT_FOUND;
+    peer->heartbeat_interval_ms = interval_ms;
+    peer->heartbeat_miss_count_max = miss_count_max;
+    peer->missed_pongs = 0;
+    peer->last_ping_sent_ms = 0;
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_poll_heartbeat(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint32_t now_ms,
+    uint8_t* out_should_ping,
+    uint8_t* out_peer_timeout
+) {
+    relinow_peer_state_t* peer;
+    if (state == 0 || peer_index >= RELINOW_MAX_PEERS || !out_should_ping || !out_peer_timeout) return RELINOW_STATE_ERR_INVALID_ARG;
+    *out_should_ping = 0;
+    *out_peer_timeout = 0;
+    peer = &state->peers[peer_index];
+    if (!peer->in_use || peer->heartbeat_interval_ms == 0) return RELINOW_STATE_OK;
+
+    if (now_ms - peer->last_ping_sent_ms >= peer->heartbeat_interval_ms) {
+        if (peer->missed_pongs >= peer->heartbeat_miss_count_max) {
+            *out_peer_timeout = 1;
+        } else {
+            *out_should_ping = 1;
+            peer->missed_pongs++;
+            peer->last_ping_sent_ms = now_ms;
+        }
+    }
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_on_pong(
+    relinow_state_t* state,
+    uint8_t peer_index
+) {
+    relinow_peer_state_t* peer;
+    if (state == 0 || peer_index >= RELINOW_MAX_PEERS) return RELINOW_STATE_ERR_INVALID_ARG;
+    peer = &state->peers[peer_index];
+    if (!peer->in_use) return RELINOW_STATE_ERR_NOT_FOUND;
+    peer->missed_pongs = 0;
+    return RELINOW_STATE_OK;
+}
+

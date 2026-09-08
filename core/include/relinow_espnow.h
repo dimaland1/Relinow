@@ -29,15 +29,23 @@ typedef void (*relinow_espnow_on_tx_event_cb)(
     void* user_ctx
 );
 
+typedef void (*relinow_espnow_on_peer_timeout_cb)(
+    const uint8_t peer_mac[6],
+    void* user_ctx
+);
+
 typedef struct {
     uint8_t peer_mac[6];
     uint8_t channel_id;
     uint8_t mode;
     uint16_t max_payload;
     uint16_t fragment_timeout_ms;
+    uint16_t heartbeat_interval_ms;
+    uint8_t heartbeat_miss_count_max;
     relinow_reliable_config_t reliable_cfg;
     relinow_espnow_on_message_cb on_message;
     relinow_espnow_on_tx_event_cb on_tx_event;
+    relinow_espnow_on_peer_timeout_cb on_peer_timeout;
     void* user_ctx;
 } relinow_espnow_config_t;
 
@@ -66,6 +74,7 @@ typedef struct {
     uint16_t fragment_timeout_ms;
     relinow_espnow_on_message_cb on_message;
     relinow_espnow_on_tx_event_cb on_tx_event;
+    relinow_espnow_on_peer_timeout_cb on_peer_timeout;
     void* user_ctx;
     uint8_t fragmented_tx_active;
     uint8_t fragmented_tx_count;
