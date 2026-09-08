@@ -142,11 +142,11 @@ Full hardware instructions are in `examples/README.md`.
 - [x] Packet serialization / deserialization
 - [x] RELIABLE MVP (DATA + ACK + retransmission + ordering baseline)
 - [x] RTT adaptive timeout + retry backoff
-- [ ] PRIORITY mode (newest-wins)
-- [ ] UNRELIABLE mode (fire-and-forget with loss stats)
+- [x] PRIORITY mode (newest-wins)
+- [x] UNRELIABLE mode (fire-and-forget with loss stats)
 - [ ] Channel multiplexing and scheduler
-- [ ] Fragmentation / reassembly
-- [ ] Rust wrapper
+- [x] Fragmentation / reassembly
+- [ ] no_std Rust wrapper (API design in progress)
 - [ ] Benchmarks and documentation
 
 ## Hardware
@@ -158,7 +158,7 @@ Tested on:
 
 ## Status
 
-**Work in progress.** Protocol spec is complete, RELIABLE MVP and ESP-NOW A/B examples are implemented.
+**Active development.** C99 core and MVP complete. Currently starting development on the no_std Rust wrapper.
 
 ## License
 
