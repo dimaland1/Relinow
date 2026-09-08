@@ -60,6 +60,7 @@ typedef struct {
     uint8_t heartbeat_miss_count_max;
     uint32_t last_ping_sent_ms;
     uint8_t missed_pongs;
+    uint8_t last_polled_channel_idx;
     relinow_channel_state_t channels[RELINOW_MAX_CHANNELS_PER_PEER];
 } relinow_peer_state_t;
 

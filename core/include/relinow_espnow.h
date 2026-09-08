@@ -104,6 +104,7 @@ esp_err_t relinow_espnow_open_channel(
 
 esp_err_t relinow_espnow_send_reliable(
     relinow_espnow_node_t* node,
+    uint8_t channel_id,
     const uint8_t* payload,
     uint16_t payload_len,
     uint32_t now_ms

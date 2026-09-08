@@ -72,3 +72,7 @@ DartConfiguration.tcl
 
 # Generated binary fixtures
 tests/fixtures/*.bin
+wokwi-cli.exe
+out.txt
+serial.log
+diag.json

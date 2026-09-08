@@ -73,3 +73,12 @@ add_test(NAME relinow_test_state_core COMMAND test_state_core)
 add_test(NAME relinow_test_reliable_mvp COMMAND test_reliable_mvp)
 add_test(NAME relinow_test_reliable_state COMMAND test_reliable_state)
 add_test(NAME relinow_test_non_reliable_modes COMMAND test_non_reliable_modes)
+
+add_executable(test_heartbeat src/test_heartbeat.c)
+target_link_libraries(test_heartbeat PRIVATE relinow_core)
+add_test(NAME relinow_test_heartbeat COMMAND test_heartbeat)
+
+add_executable(test_scheduler src/test_scheduler.c)
+target_link_libraries(test_scheduler PRIVATE relinow_core)
+add_test(NAME relinow_test_scheduler COMMAND test_scheduler)
+

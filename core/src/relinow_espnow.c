@@ -281,6 +281,7 @@ esp_err_t relinow_espnow_open_channel(
 
 esp_err_t relinow_espnow_send_reliable(
     relinow_espnow_node_t* node,
+    uint8_t channel_id,
     const uint8_t* payload,
     uint16_t payload_len,
     uint32_t now_ms
@@ -296,12 +297,12 @@ esp_err_t relinow_espnow_send_reliable(
         return ESP_ERR_INVALID_ARG;
     }
 
-    src = relinow_state_get_channel_mode(&node->state, node->peer_index, node->channel_id, &channel_mode);
+    src = relinow_state_get_channel_mode(&node->state, node->peer_index, channel_id, &channel_mode);
     if (src != RELINOW_STATE_OK || channel_mode != RELINOW_MODE_RELIABLE) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    channel = relinow_find_channel_state(node, node->channel_id);
+    channel = relinow_find_channel_state(node, channel_id);
     if (channel == 0) {
         return ESP_ERR_INVALID_STATE;
     }

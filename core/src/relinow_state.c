@@ -738,10 +738,9 @@ relinow_state_err_t relinow_state_scheduler_next(
     uint8_t* out_channel_id,
     relinow_reliable_tx_result_t* out_tx
 ) {
-    uint8_t i;
+    uint8_t i, count;
+    uint8_t idx;
     relinow_peer_state_t* peer;
-    uint8_t best_idx = 0xFF;
-    uint8_t best_priority = 0xFF;
     relinow_reliable_tx_result_t tx_res;
 
     if (state == 0 || out_channel_id == 0 || out_tx == 0) return RELINOW_STATE_ERR_INVALID_ARG;
@@ -751,13 +750,15 @@ relinow_state_err_t relinow_state_scheduler_next(
 
     out_tx->event = RELINOW_RELIABLE_TX_NONE;
 
-    // Pass 1: Find retransmissions
-    for (i = 0; i < RELINOW_MAX_CHANNELS_PER_PEER; ++i) {
-        if (peer->channels[i].in_use && peer->channels[i].mode == RELINOW_MODE_RELIABLE) {
-            relinow_state_reliable_poll(state, peer_index, peer->channels[i].channel_id, now_ms, &tx_res);
+    // Pass 1: Find retransmissions with Round-Robin fairness
+    for (count = 0; count < RELINOW_MAX_CHANNELS_PER_PEER; ++count) {
+        idx = (peer->last_polled_channel_idx + 1 + count) % RELINOW_MAX_CHANNELS_PER_PEER;
+        if (peer->channels[idx].in_use && peer->channels[idx].mode == RELINOW_MODE_RELIABLE) {
+            relinow_state_reliable_poll(state, peer_index, peer->channels[idx].channel_id, now_ms, &tx_res);
             if (tx_res.event != RELINOW_RELIABLE_TX_NONE) {
-                *out_channel_id = peer->channels[i].channel_id;
+                *out_channel_id = peer->channels[idx].channel_id;
                 *out_tx = tx_res;
+                peer->last_polled_channel_idx = idx; // Remember where we stopped
                 return RELINOW_STATE_OK;
             }
         }
