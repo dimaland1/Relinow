@@ -505,8 +505,11 @@ esp_err_t relinow_espnow_on_receive(
     }
 
     if (header.mode == RELINOW_MODE_UNRELIABLE) {
-        if (header.type == RELINOW_TYPE_DATA && node->on_message != 0) {
-            node->on_message(src_mac, header.channel_id, header.seq_id, &data[RELINOW_HEADER_SIZE], header.payload_len, node->user_ctx);
+        if (header.type == RELINOW_TYPE_DATA) {
+            (void)relinow_state_unreliable_on_data(&node->state, node->peer_index, header.channel_id, header.seq_id);
+            if (node->on_message != 0) {
+                node->on_message(src_mac, header.channel_id, header.seq_id, &data[RELINOW_HEADER_SIZE], header.payload_len, node->user_ctx);
+            }
         }
         return ESP_OK;
     }

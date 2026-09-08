@@ -682,3 +682,51 @@ relinow_state_err_t relinow_state_on_pong(
     return RELINOW_STATE_OK;
 }
 
+
+relinow_state_err_t relinow_state_unreliable_on_data(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t seq_id
+) {
+    relinow_channel_state_t* channel;
+    if (state == 0) return RELINOW_STATE_ERR_INVALID_ARG;
+    channel = relinow_find_channel_mut(state, peer_index, channel_id);
+    if (channel == 0) return RELINOW_STATE_ERR_NOT_FOUND;
+    if (channel->mode != RELINOW_MODE_UNRELIABLE) return RELINOW_STATE_ERR_WRONG_MODE;
+
+    channel->stats.total_rx++;
+    if (!channel->has_rx_seq) {
+        channel->has_rx_seq = 1u;
+        channel->expected_rx_seq = seq_id;
+    } else {
+        if (relinow_is_seq_newer(seq_id, channel->expected_rx_seq)) {
+            uint16_t diff = (uint16_t)(seq_id - channel->expected_rx_seq);
+            channel->stats.total_lost += diff;
+            channel->expected_rx_seq = seq_id;
+        }
+    }
+    return RELINOW_STATE_OK;
+}
+
+relinow_state_err_t relinow_state_get_stats(
+    const relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    relinow_stats_t* out_stats
+) {
+    uint8_t i;
+    const relinow_peer_state_t* peer;
+    if (state == 0 || out_stats == 0 || peer_index >= RELINOW_MAX_PEERS) return RELINOW_STATE_ERR_INVALID_ARG;
+    peer = &state->peers[peer_index];
+    if (!peer->in_use) return RELINOW_STATE_ERR_NOT_FOUND;
+    for (i = 0; i < RELINOW_MAX_CHANNELS_PER_PEER; ++i) {
+        const relinow_channel_state_t* channel = &peer->channels[i];
+        if (channel->in_use && channel->channel_id == channel_id) {
+            *out_stats = channel->stats;
+            return RELINOW_STATE_OK;
+        }
+    }
+    return RELINOW_STATE_ERR_NOT_FOUND;
+}
+

@@ -33,6 +33,11 @@ typedef struct {
 } relinow_rx_slot_t;
 
 typedef struct {
+    uint32_t total_rx;
+    uint32_t total_lost;
+} relinow_stats_t;
+
+typedef struct {
     uint8_t in_use;
     uint8_t channel_id;
     uint8_t mode;
@@ -42,6 +47,7 @@ typedef struct {
     uint8_t has_rx_seq;
     uint8_t has_inflight;
     uint16_t inflight_seq;
+    relinow_stats_t stats;
     relinow_reliable_ctx_t reliable;
     relinow_tx_slot_t tx_queue[RELINOW_TX_QUEUE_SIZE];
     relinow_rx_slot_t rx_queue[RELINOW_RX_QUEUE_SIZE];
@@ -188,6 +194,13 @@ relinow_state_err_t relinow_state_unreliable_send(
     uint16_t* out_seq_id
 );
 
+relinow_state_err_t relinow_state_unreliable_on_data(
+    relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    uint16_t seq_id
+);
+
 relinow_state_err_t relinow_state_priority_send(
     relinow_state_t* state,
     uint8_t peer_index,
@@ -229,6 +242,13 @@ relinow_state_err_t relinow_state_poll_heartbeat(
 relinow_state_err_t relinow_state_on_pong(
     relinow_state_t* state,
     uint8_t peer_index
+);
+
+relinow_state_err_t relinow_state_get_stats(
+    const relinow_state_t* state,
+    uint8_t peer_index,
+    uint8_t channel_id,
+    relinow_stats_t* out_stats
 );
 
 #endif
