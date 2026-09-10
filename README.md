@@ -144,7 +144,7 @@ Full hardware instructions are in `examples/README.md`.
 - [x] RTT adaptive timeout + retry backoff
 - [x] PRIORITY mode (newest-wins)
 - [x] UNRELIABLE mode (fire-and-forget with loss stats)
-- [ ] Channel multiplexing and scheduler
+- [x] Channel multiplexing and scheduler
 - [x] Fragmentation / reassembly
 - [ ] no_std Rust wrapper (API design in progress)
 - [ ] Benchmarks and documentation

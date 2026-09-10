@@ -618,7 +618,6 @@ esp_err_t relinow_espnow_poll(
 ) {
     relinow_reliable_tx_result_t tx;
     relinow_state_err_t src;
-    uint8_t channel_mode;
 
     if (node == 0) {
         return ESP_ERR_INVALID_ARG;
