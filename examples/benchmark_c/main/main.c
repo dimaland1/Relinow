@@ -18,7 +18,7 @@ static const char* TAG = "BENCHMARK";
 #define PACKET_COUNT 1000
 #define PAYLOAD_SIZE 241
 
-static relinow_espnow_node_t relinow_node;
+static relinow_node_t relinow_node;
 static uint8_t my_mac[6];
 static uint8_t peer_mac[6];
 static bool peer_discovered = false;
@@ -43,7 +43,7 @@ static void discover_task(void* arg) {
     
     while (!peer_discovered) {
         // Broadcast a ping
-        esp_err_t err = relinow_espnow_send_unreliable(&relinow_node, 1, (const uint8_t*)"DISCOVER", 8);
+        esp_err_t err = relinow_send_unreliable(&relinow_node, 1, (const uint8_t*)"DISCOVER", 8);
         if (err != ESP_OK) ESP_LOGE(TAG, "Broadcast failed: %s", esp_err_to_name(err));
         vTaskDelay(pdMS_TO_TICKS(500));
     }
@@ -66,7 +66,7 @@ static void app_recv_cb(const esp_now_recv_info_t *esp_now_info, const uint8_t *
     }
     
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-    relinow_espnow_on_receive(&relinow_node, esp_now_info->src_addr, data, data_len, now);
+    relinow_on_receive(&relinow_node, esp_now_info->src_addr, data, data_len, now);
 }
 
 static void benchmark_task(void* arg) {
@@ -107,10 +107,10 @@ static void benchmark_task(void* arg) {
         while (1) {
             uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
             
-            relinow_espnow_poll(&relinow_node, now);
+            relinow_poll(&relinow_node, now);
             
             if (packets_sent < PACKET_COUNT) {
-                esp_err_t err = relinow_espnow_send_reliable(&relinow_node, BENCHMARK_CHANNEL, payload, PAYLOAD_SIZE, now);
+                esp_err_t err = relinow_send_reliable(&relinow_node, BENCHMARK_CHANNEL, payload, PAYLOAD_SIZE, now);
                 if (err == ESP_OK) {
                     packets_sent++;
                     if (packets_sent % 100 == 0) {
@@ -158,7 +158,7 @@ static void benchmark_task(void* arg) {
         ESP_LOGI(TAG, "--- RESPONDER READY ---");
         while (1) {
             uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-            relinow_espnow_poll(&relinow_node, now);
+            relinow_poll(&relinow_node, now);
             vTaskDelay(1);
         }
     }
@@ -182,12 +182,12 @@ void app_main(void) {
     esp_now_init();
     esp_now_register_recv_cb(app_recv_cb);
 
-    relinow_espnow_config_t rcfg;
-    relinow_espnow_default_config(&rcfg);
+    relinow_config_t rcfg;
+    relinow_default_config(&rcfg);
     
-    esp_err_t init_err = relinow_espnow_init(&relinow_node, &rcfg);
+    esp_err_t init_err = relinow_init(&relinow_node, &rcfg);
     if (init_err != ESP_OK) {
-        ESP_LOGE(TAG, "relinow_espnow_init failed: %s", esp_err_to_name(init_err));
+        ESP_LOGE(TAG, "relinow_init failed: %s", esp_err_to_name(init_err));
     }
 
     xTaskCreate(discover_task, "discover", 4096, NULL, 5, NULL);

@@ -32,7 +32,7 @@ static const char* TAG = "relinow_b";
 /* ESP32 A STA MAC address (COM6). */
 static const uint8_t PEER_MAC[6] = {0x88, 0x13, 0xBF, 0x25, 0x1B, 0x30};
 
-static relinow_espnow_node_t g_node;
+static relinow_node_t g_node;
 static SemaphoreHandle_t g_node_lock;
 
 static uint32_t now_ms(void) {
@@ -138,7 +138,7 @@ static void send_cb(const esp_now_send_info_t* tx_info, esp_now_send_status_t st
              tx_info->des_addr[0], tx_info->des_addr[1], tx_info->des_addr[2],
              tx_info->des_addr[3], tx_info->des_addr[4], tx_info->des_addr[5]);
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-        relinow_espnow_on_send_status(&g_node, tx_info->des_addr, status);
+        relinow_on_send_status(&g_node, tx_info->des_addr, status);
         xSemaphoreGive(g_node_lock);
     }
 }
@@ -153,7 +153,7 @@ static void send_cb(const uint8_t* mac_addr, esp_now_send_status_t status) {
              mac_addr[0], mac_addr[1], mac_addr[2],
              mac_addr[3], mac_addr[4], mac_addr[5]);
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-        relinow_espnow_on_send_status(&g_node, mac_addr, status);
+        relinow_on_send_status(&g_node, mac_addr, status);
         xSemaphoreGive(g_node_lock);
     }
 }
@@ -167,7 +167,7 @@ static void recv_cb(const esp_now_recv_info_t* info, const uint8_t* data, int le
     }
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
         log_raw_rx_frame(info->src_addr, data, len);
-        rc = relinow_espnow_on_receive(&g_node, info->src_addr, data, (uint16_t)len, now_ms());
+        rc = relinow_on_receive(&g_node, info->src_addr, data, (uint16_t)len, now_ms());
         if (rc != ESP_OK) {
             ESP_LOGW(TAG, "on_receive rc=%s", esp_err_to_name(rc));
         }
@@ -182,7 +182,7 @@ static void recv_cb(const uint8_t* mac_addr, const uint8_t* data, int len) {
     }
     if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
         log_raw_rx_frame(mac_addr, data, len);
-        rc = relinow_espnow_on_receive(&g_node, mac_addr, data, (uint16_t)len, now_ms());
+        rc = relinow_on_receive(&g_node, mac_addr, data, (uint16_t)len, now_ms());
         if (rc != ESP_OK) {
             ESP_LOGW(TAG, "on_receive rc=%s", esp_err_to_name(rc));
         }
@@ -237,7 +237,7 @@ void app_main(void) {
     uint32_t unreliable_counter = 0u;
     uint32_t priority_counter = 0u;
     uint32_t startup_guard_until = 0u;
-    relinow_espnow_config_t cfg;
+    relinow_config_t cfg;
     esp_err_t nvs_rc;
 
     nvs_rc = nvs_flash_init();
@@ -258,15 +258,15 @@ void app_main(void) {
     print_mac("Local MAC:", local_mac);
     print_mac("Peer  MAC:", PEER_MAC);
 
-    relinow_espnow_default_config(&cfg);
+    relinow_default_config(&cfg);
     memcpy(cfg.peer_mac, PEER_MAC, 6u);
     cfg.channel_id = RELINOW_RELIABLE_CHANNEL_ID;
     cfg.mode = RELINOW_MODE_RELIABLE;
     cfg.on_message = on_message;
     cfg.on_tx_event = on_tx_event;
-    ESP_ERROR_CHECK(relinow_espnow_init(&g_node, &cfg));
-    ESP_ERROR_CHECK(relinow_espnow_open_channel(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, RELINOW_MODE_UNRELIABLE, 0u));
-    ESP_ERROR_CHECK(relinow_espnow_open_channel(&g_node, RELINOW_PRIORITY_CHANNEL_ID, RELINOW_MODE_PRIORITY, 0u));
+    ESP_ERROR_CHECK(relinow_init(&g_node, &cfg));
+    ESP_ERROR_CHECK(relinow_open_channel(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, RELINOW_MODE_UNRELIABLE, 0u));
+    ESP_ERROR_CHECK(relinow_open_channel(&g_node, RELINOW_PRIORITY_CHANNEL_ID, RELINOW_MODE_PRIORITY, 0u));
 
     startup_guard_until = now_ms() + RELINOW_STARTUP_GUARD_MS;
     ESP_LOGI(TAG, "TX startup guard: %lu ms", (unsigned long)RELINOW_STARTUP_GUARD_MS);
@@ -278,7 +278,7 @@ void app_main(void) {
             char msg[96];
             int n = snprintf(msg, sizeof(msg), "B->A heartbeat #%lu", (unsigned long)reliable_counter++);
             if (n > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
-                esp_err_t rc = relinow_espnow_send_reliable(&g_node, (const uint8_t*)msg, (uint16_t)n, now);
+                esp_err_t rc = relinow_send_reliable(&g_node, (const uint8_t*)msg, (uint16_t)n, now);
                 if (rc != ESP_OK) {
                     ESP_LOGE(TAG, "reliable send failed: %s", esp_err_to_name(rc));
                 }
@@ -293,7 +293,7 @@ void app_main(void) {
                 char msg[96];
                 int n = snprintf(msg, sizeof(msg), "B->A unrel telemetry #%lu.%u", (unsigned long)unreliable_counter, (unsigned)i);
                 if (n > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
-                    esp_err_t rc = relinow_espnow_send_unreliable(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, (const uint8_t*)msg, (uint16_t)n);
+                    esp_err_t rc = relinow_send_unreliable(&g_node, RELINOW_UNRELIABLE_CHANNEL_ID, (const uint8_t*)msg, (uint16_t)n);
                     if (rc != ESP_OK) {
                         ESP_LOGE(TAG, "unreliable send failed: %s", esp_err_to_name(rc));
                     }
@@ -311,8 +311,8 @@ void app_main(void) {
             int n_fresh = snprintf(fresh_msg, sizeof(fresh_msg), "B->A priority fresh #%lu", (unsigned long)priority_counter++);
 
             if (n_stale > 0 && n_fresh > 0 && xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(20)) == pdTRUE) {
-                esp_err_t rc_stale = relinow_espnow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)stale_msg, (uint16_t)n_stale);
-                esp_err_t rc_fresh = relinow_espnow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)fresh_msg, (uint16_t)n_fresh);
+                esp_err_t rc_stale = relinow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)stale_msg, (uint16_t)n_stale);
+                esp_err_t rc_fresh = relinow_send_priority(&g_node, RELINOW_PRIORITY_CHANNEL_ID, (const uint8_t*)fresh_msg, (uint16_t)n_fresh);
                 if (rc_stale != ESP_OK || rc_fresh != ESP_OK) {
                     ESP_LOGE(TAG, "priority send failed stale=%s fresh=%s",
                              esp_err_to_name(rc_stale),
@@ -325,7 +325,7 @@ void app_main(void) {
         }
 
         if (xSemaphoreTake(g_node_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-            (void)relinow_espnow_poll(&g_node, now);
+            (void)relinow_poll(&g_node, now);
             xSemaphoreGive(g_node_lock);
         }
 

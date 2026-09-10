@@ -738,7 +738,7 @@ relinow_state_err_t relinow_state_scheduler_next(
     uint8_t* out_channel_id,
     relinow_reliable_tx_result_t* out_tx
 ) {
-    uint8_t i, count;
+    uint8_t count;
     uint8_t idx;
     relinow_peer_state_t* peer;
     relinow_reliable_tx_result_t tx_res;

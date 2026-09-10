@@ -49,7 +49,7 @@ use std::time::Duration;
 // Include generated FFI bindings or relinow crate
 use relinow_sys::*;
 
-static mut NODE: relinow_espnow_node_t = unsafe { std::mem::zeroed() };
+static mut NODE: relinow_node_t = unsafe { std::mem::zeroed() };
 
 unsafe extern "C" fn on_receive(
     esp_now_info: *const esp_idf_sys::esp_now_recv_info_t,
@@ -58,7 +58,7 @@ unsafe extern "C" fn on_receive(
 ) {
     if !esp_now_info.is_null() && !data.is_null() && data_len > 0 {
         let now_ms = (esp_idf_sys::esp_timer_get_time() / 1000) as u32;
-        relinow_espnow_on_receive(&mut NODE, (*esp_now_info).src_addr, data, data_len as u16, now_ms);
+        relinow_on_receive(&mut NODE, (*esp_now_info).src_addr, data, data_len as u16, now_ms);
     }
 }
 
@@ -87,7 +87,7 @@ fn main() {
 
             loop {
                 let now_ms = (unsafe { esp_idf_sys::esp_timer_get_time() } / 1000) as u32;
-                unsafe { relinow_espnow_poll(&mut NODE, now_ms); }
+                unsafe { relinow_poll(&mut NODE, now_ms); }
                 std::thread::sleep(Duration::from_millis(5));
             }
         })

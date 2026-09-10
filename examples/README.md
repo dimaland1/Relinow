@@ -54,4 +54,4 @@ idf.py -p <PORT_B> flash monitor
 ## Notes
 
 - This is a RELIABLE MVP path: DATA + ACK + retransmission + ordering baseline.
-- For production use, tune retry and RTT config in `relinow_espnow_default_config()` / per-node config.
+- For production use, tune retry and RTT config in `relinow_default_config()` / per-node config.

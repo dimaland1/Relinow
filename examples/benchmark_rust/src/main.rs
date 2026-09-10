@@ -18,7 +18,7 @@ const PACKET_COUNT: u16 = 1000;
 const PAYLOAD_SIZE: u16 = 241;
 
 // Global node and discovery state
-static mut NODE: relinow_espnow_node_t = unsafe { std::mem::zeroed() };
+static mut NODE: relinow_node_t = unsafe { std::mem::zeroed() };
 static mut MY_MAC: [u8; 6] = [0; 6];
 static mut PEER_MAC: [u8; 6] = [0; 6];
 static mut PEER_DISCOVERED: bool = false;
@@ -52,7 +52,7 @@ unsafe extern "C" fn app_recv_cb(esp_now_info: *const esp_idf_sys::esp_now_recv_
     }
 
     let now = (esp_idf_sys::esp_timer_get_time() / 1000) as u32;
-    relinow_espnow_on_receive(&mut NODE, src_addr, data, data_len as u16, now);
+    relinow_on_receive(&mut NODE, src_addr, data, data_len as u16, now);
 }
 
 fn main() {
@@ -95,11 +95,11 @@ fn run_benchmark() {
         esp_idf_sys::esp_now_register_recv_cb(Some(app_recv_cb));
     }
 
-    let mut rcfg: relinow_espnow_config_t = unsafe { std::mem::zeroed() };
-    unsafe { relinow_espnow_default_config(&mut rcfg) };
+    let mut rcfg: relinow_config_t = unsafe { std::mem::zeroed() };
+    unsafe { relinow_default_config(&mut rcfg) };
 
     unsafe {
-        if relinow_espnow_init(&mut NODE, &rcfg) != 0 {
+        if relinow_init(&mut NODE, &rcfg) != 0 {
             error!("Failed to init relinow");
             return;
         }
@@ -127,7 +127,7 @@ fn run_benchmark() {
     loop {
         unsafe {
             if PEER_DISCOVERED { break; }
-            relinow_espnow_send_unreliable(&mut NODE, 1, payload.as_ptr(), payload.len() as u16);
+            relinow_send_unreliable(&mut NODE, 1, payload.as_ptr(), payload.len() as u16);
         }
         std::thread::sleep(Duration::from_millis(500));
     }
@@ -169,11 +169,11 @@ fn run_benchmark() {
 
         loop {
             let now = unsafe { esp_idf_sys::esp_timer_get_time() } as u32 / 1000;
-            unsafe { relinow_espnow_poll(&mut NODE, now); }
+            unsafe { relinow_poll(&mut NODE, now); }
 
             if packets_sent < PACKET_COUNT {
                 unsafe {
-                    let err = relinow_espnow_send_reliable(&mut NODE, BENCHMARK_CHANNEL, payload.as_ptr(), PAYLOAD_SIZE, now);
+                    let err = relinow_send_reliable(&mut NODE, BENCHMARK_CHANNEL, payload.as_ptr(), PAYLOAD_SIZE, now);
                     if err == 0 {
                         packets_sent += 1;
                         if packets_sent % 100 == 0 {
@@ -229,7 +229,7 @@ fn run_benchmark() {
         info!("--- RESPONDER READY ---");
         loop {
             let now = unsafe { esp_idf_sys::esp_timer_get_time() } as u32 / 1000;
-            unsafe { relinow_espnow_poll(&mut NODE, now); }
+            unsafe { relinow_poll(&mut NODE, now); }
             std::thread::sleep(Duration::from_millis(1));
         }
     }

@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-static relinow_espnow_tx_cache_t* relinow_tx_cache_find(relinow_espnow_node_t* node, uint16_t seq_id) {
+static relinow_tx_cache_t* relinow_tx_cache_find(relinow_node_t* node, uint16_t seq_id) {
     uint8_t i;
     for (i = 0u; i < RELINOW_RELIABLE_MAX_PENDING; ++i) {
         if (node->tx_cache[i].in_use && node->tx_cache[i].seq_id == seq_id) {
@@ -12,7 +12,7 @@ static relinow_espnow_tx_cache_t* relinow_tx_cache_find(relinow_espnow_node_t* n
     return 0;
 }
 
-static relinow_espnow_tx_cache_t* relinow_tx_cache_alloc(relinow_espnow_node_t* node) {
+static relinow_tx_cache_t* relinow_tx_cache_alloc(relinow_node_t* node) {
     uint8_t i;
     for (i = 0u; i < RELINOW_RELIABLE_MAX_PENDING; ++i) {
         if (!node->tx_cache[i].in_use) {
@@ -22,14 +22,14 @@ static relinow_espnow_tx_cache_t* relinow_tx_cache_alloc(relinow_espnow_node_t* 
     return 0;
 }
 
-static void relinow_tx_cache_remove(relinow_espnow_node_t* node, uint16_t seq_id) {
-    relinow_espnow_tx_cache_t* slot = relinow_tx_cache_find(node, seq_id);
+static void relinow_tx_cache_remove(relinow_node_t* node, uint16_t seq_id) {
+    relinow_tx_cache_t* slot = relinow_tx_cache_find(node, seq_id);
     if (slot != 0) {
         slot->in_use = 0u;
     }
 }
 
-static relinow_espnow_rx_cache_t* relinow_rx_cache_find(relinow_espnow_node_t* node, uint16_t seq_id) {
+static relinow_rx_cache_t* relinow_rx_cache_find(relinow_node_t* node, uint16_t seq_id) {
     uint8_t i;
     for (i = 0u; i < (1u + RELINOW_RELIABLE_MAX_REORDER); ++i) {
         if (node->rx_cache[i].in_use && node->rx_cache[i].seq_id == seq_id) {
@@ -39,7 +39,7 @@ static relinow_espnow_rx_cache_t* relinow_rx_cache_find(relinow_espnow_node_t* n
     return 0;
 }
 
-static relinow_espnow_rx_cache_t* relinow_rx_cache_alloc(relinow_espnow_node_t* node) {
+static relinow_rx_cache_t* relinow_rx_cache_alloc(relinow_node_t* node) {
     uint8_t i;
     for (i = 0u; i < (1u + RELINOW_RELIABLE_MAX_REORDER); ++i) {
         if (!node->rx_cache[i].in_use) {
@@ -49,14 +49,14 @@ static relinow_espnow_rx_cache_t* relinow_rx_cache_alloc(relinow_espnow_node_t* 
     return 0;
 }
 
-static void relinow_rx_cache_remove(relinow_espnow_node_t* node, uint16_t seq_id) {
-    relinow_espnow_rx_cache_t* slot = relinow_rx_cache_find(node, seq_id);
+static void relinow_rx_cache_remove(relinow_node_t* node, uint16_t seq_id) {
+    relinow_rx_cache_t* slot = relinow_rx_cache_find(node, seq_id);
     if (slot != 0) {
         slot->in_use = 0u;
     }
 }
 
-static relinow_channel_state_t* relinow_find_channel_state(relinow_espnow_node_t* node, uint8_t channel_id) {
+static relinow_channel_state_t* relinow_find_channel_state(relinow_node_t* node, uint8_t channel_id) {
     relinow_peer_state_t* peer;
     uint8_t i;
 
@@ -96,7 +96,7 @@ static uint8_t relinow_count_free_pending(const relinow_channel_state_t* channel
     return free_count;
 }
 
-static uint8_t relinow_count_free_tx_cache(const relinow_espnow_node_t* node) {
+static uint8_t relinow_count_free_tx_cache(const relinow_node_t* node) {
     uint8_t i;
     uint8_t free_count = 0u;
 
@@ -113,7 +113,7 @@ static uint8_t relinow_count_free_tx_cache(const relinow_espnow_node_t* node) {
     return free_count;
 }
 
-static void relinow_fragment_tx_track(relinow_espnow_node_t* node, uint16_t seq_id) {
+static void relinow_fragment_tx_track(relinow_node_t* node, uint16_t seq_id) {
     if (node == 0) {
         return;
     }
@@ -123,7 +123,7 @@ static void relinow_fragment_tx_track(relinow_espnow_node_t* node, uint16_t seq_
     }
 }
 
-static void relinow_fragment_tx_on_ack(relinow_espnow_node_t* node, uint16_t ack_id) {
+static void relinow_fragment_tx_on_ack(relinow_node_t* node, uint16_t ack_id) {
     uint8_t i;
 
     if (node == 0 || !node->fragmented_tx_active) {
@@ -145,7 +145,7 @@ static void relinow_fragment_tx_on_ack(relinow_espnow_node_t* node, uint16_t ack
     }
 }
 
-static void relinow_reassembly_reset(relinow_espnow_node_t* node) {
+static void relinow_reassembly_reset(relinow_node_t* node) {
     if (node == 0) {
         return;
     }
@@ -156,7 +156,7 @@ static void relinow_reassembly_reset(relinow_espnow_node_t* node) {
 }
 
 static esp_err_t relinow_send_frame(
-    relinow_espnow_node_t* node,
+    relinow_node_t* node,
     uint8_t mode,
     uint8_t channel_id,
     uint8_t type,
@@ -167,7 +167,7 @@ static esp_err_t relinow_send_frame(
     uint16_t payload_len
 ) {
     relinow_header_t header;
-    uint8_t frame[RELINOW_ESPNOW_MAX_FRAME];
+    uint8_t frame[RELINOW_MAX_FRAME];
     relinow_err_t rc;
 
     if (payload_len > node->max_payload) {
@@ -196,7 +196,7 @@ static esp_err_t relinow_send_frame(
     return esp_now_send(node->peer_mac, frame, (size_t)(RELINOW_HEADER_SIZE + payload_len));
 }
 
-void relinow_espnow_default_config(relinow_espnow_config_t* out_cfg) {
+void relinow_default_config(relinow_config_t* out_cfg) {
     relinow_reliable_config_t rel_cfg;
     if (out_cfg == 0) {
         return;
@@ -205,7 +205,7 @@ void relinow_espnow_default_config(relinow_espnow_config_t* out_cfg) {
     memset(out_cfg, 0, sizeof(*out_cfg));
     out_cfg->mode = RELINOW_MODE_RELIABLE;
     out_cfg->channel_id = 1u;
-    out_cfg->max_payload = RELINOW_ESPNOW_MAX_PAYLOAD;
+    out_cfg->max_payload = RELINOW_MAX_PAYLOAD;
     out_cfg->fragment_timeout_ms = 5000u;
     out_cfg->heartbeat_interval_ms = 0u;
     out_cfg->heartbeat_miss_count_max = 3u;
@@ -214,12 +214,12 @@ void relinow_espnow_default_config(relinow_espnow_config_t* out_cfg) {
     out_cfg->reliable_cfg = rel_cfg;
 }
 
-esp_err_t relinow_espnow_init(
-    relinow_espnow_node_t* node,
-    const relinow_espnow_config_t* cfg
+esp_err_t relinow_init(
+    relinow_node_t* node,
+    const relinow_config_t* cfg
 ) {
     relinow_state_err_t src;
-    if (node == 0 || cfg == 0 || cfg->max_payload == 0u || cfg->max_payload > RELINOW_ESPNOW_MAX_PAYLOAD) {
+    if (node == 0 || cfg == 0 || cfg->max_payload == 0u || cfg->max_payload > RELINOW_MAX_PAYLOAD) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -259,8 +259,8 @@ esp_err_t relinow_espnow_init(
     return ESP_OK;
 }
 
-esp_err_t relinow_espnow_open_channel(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_open_channel(
+    relinow_node_t* node,
     uint8_t channel_id,
     uint8_t mode,
     uint8_t priority
@@ -279,8 +279,8 @@ esp_err_t relinow_espnow_open_channel(
     return ESP_OK;
 }
 
-esp_err_t relinow_espnow_send_reliable(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_send_reliable(
+    relinow_node_t* node,
     uint8_t channel_id,
     const uint8_t* payload,
     uint16_t payload_len,
@@ -290,7 +290,7 @@ esp_err_t relinow_espnow_send_reliable(
     relinow_state_err_t src;
     uint8_t channel_mode;
     relinow_channel_state_t* channel;
-    relinow_espnow_tx_cache_t* slot;
+    relinow_tx_cache_t* slot;
     esp_err_t erc;
 
     if (node == 0 || payload == 0 || payload_len == 0u) {
@@ -401,8 +401,8 @@ esp_err_t relinow_espnow_send_reliable(
     return ESP_OK;
 }
 
-esp_err_t relinow_espnow_send_unreliable(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_send_unreliable(
+    relinow_node_t* node,
     uint8_t channel_id,
     const uint8_t* payload,
     uint16_t payload_len
@@ -428,8 +428,8 @@ esp_err_t relinow_espnow_send_unreliable(
     return relinow_send_frame(node, RELINOW_MODE_UNRELIABLE, channel_id, RELINOW_TYPE_DATA, 0u, seq_id, 0u, payload, payload_len);
 }
 
-esp_err_t relinow_espnow_send_priority(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_send_priority(
+    relinow_node_t* node,
     uint8_t channel_id,
     const uint8_t* payload,
     uint16_t payload_len
@@ -466,8 +466,8 @@ esp_err_t relinow_espnow_send_priority(
     return relinow_send_frame(node, RELINOW_MODE_PRIORITY, channel_id, RELINOW_TYPE_DATA, 0u, seq_id, 0u, payload, payload_len);
 }
 
-esp_err_t relinow_espnow_on_receive(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_on_receive(
+    relinow_node_t* node,
     const uint8_t src_mac[6],
     const uint8_t* data,
     uint16_t data_len,
@@ -541,7 +541,7 @@ esp_err_t relinow_espnow_on_receive(
     }
 
     if (header.type == RELINOW_TYPE_DATA) {
-        relinow_espnow_rx_cache_t* rx_slot;
+        relinow_rx_cache_t* rx_slot;
         relinow_reliable_rx_result_t rx;
         uint8_t i;
 
@@ -566,7 +566,7 @@ esp_err_t relinow_espnow_on_receive(
         (void)relinow_send_frame(node, RELINOW_MODE_RELIABLE, header.channel_id, RELINOW_TYPE_ACK, 0u, 0u, rx.ack_id, 0, 0u);
 
         for (i = 0u; i < rx.delivered_count; ++i) {
-            relinow_espnow_rx_cache_t* delivered = relinow_rx_cache_find(node, rx.delivered_seq[i]);
+            relinow_rx_cache_t* delivered = relinow_rx_cache_find(node, rx.delivered_seq[i]);
             if (delivered != 0u) {
                 if ((delivered->flags & RELINOW_FLAG_FRAGMENT) != 0u) {
                     uint32_t combined_len;
@@ -579,7 +579,7 @@ esp_err_t relinow_espnow_on_receive(
                     }
 
                     combined_len = (uint32_t)node->reassembly_len + delivered->payload_len;
-                    if (combined_len > RELINOW_ESPNOW_MAX_REASSEMBLY) {
+                    if (combined_len > RELINOW_MAX_REASSEMBLY) {
                         relinow_reassembly_reset(node);
                     } else {
                         if (delivered->payload_len > 0u) {
@@ -612,8 +612,8 @@ esp_err_t relinow_espnow_on_receive(
     return ESP_OK;
 }
 
-esp_err_t relinow_espnow_poll(
-    relinow_espnow_node_t* node,
+esp_err_t relinow_poll(
+    relinow_node_t* node,
     uint32_t now_ms
 ) {
     relinow_reliable_tx_result_t tx;
@@ -643,7 +643,7 @@ esp_err_t relinow_espnow_poll(
         src = relinow_state_scheduler_next(&node->state, node->peer_index, now_ms, &sched_channel, &tx);
         if (src == RELINOW_STATE_OK && tx.event != RELINOW_RELIABLE_TX_NONE) {
             if (tx.event == RELINOW_RELIABLE_TX_RETRANSMIT) {
-                relinow_espnow_tx_cache_t* slot = relinow_tx_cache_find(node, tx.seq_id);
+                relinow_tx_cache_t* slot = relinow_tx_cache_find(node, tx.seq_id);
                 if (slot != 0u) {
                     esp_err_t erc = relinow_send_frame(node, RELINOW_MODE_RELIABLE, sched_channel, RELINOW_TYPE_DATA, slot->flags, slot->seq_id, 0u, slot->payload, slot->payload_len);
                     if (erc != ESP_OK) {
@@ -662,8 +662,8 @@ esp_err_t relinow_espnow_poll(
     return ESP_OK;
 }
 
-void relinow_espnow_on_send_status(
-    relinow_espnow_node_t* node,
+void relinow_on_send_status(
+    relinow_node_t* node,
     const uint8_t dst_mac[6],
     esp_now_send_status_t status
 ) {
