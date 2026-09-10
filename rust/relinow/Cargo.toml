@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 relinow-sys = { path = "../relinow-sys" }
+
+[dev-dependencies]
+proptest = "1.4"
