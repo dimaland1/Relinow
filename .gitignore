@@ -76,3 +76,5 @@ wokwi-cli.exe
 out.txt
 serial.log
 diag.json
+
+target/
