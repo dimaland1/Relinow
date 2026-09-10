@@ -78,3 +78,9 @@ serial.log
 diag.json
 
 target/
+**/target/
+.embuild/
+**/.embuild/
+docs/book/
+test_err.c
+*.proptest-regressions

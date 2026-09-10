@@ -1,0 +1,18 @@
+﻿[package]
+name = "benchmark_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+relinow = { path = "../../rust/relinow" }
+log = "0.4"
+heapless = "0.8"
+esp-idf-svc = "0.52.1"
+esp-idf-hal = "0.46.2"
+esp-idf-sys = "0.37.2"
+
+[build-dependencies]
+embuild = { version = "0.32", features = ["espidf"] }
+cc = "1.0"
+bindgen = "0.71"
+
