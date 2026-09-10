@@ -1,0 +1,10 @@
+[book]
+authors = ["Jalal"]
+language = "en"
+multilingual = false
+src = "src"
+title = "ReliNow Protocol Documentation"
+
+[output.html]
+git-repository-url = "https://github.com/dimaland1/Relinow"
+edit-url-template = "https://github.com/dimaland1/Relinow/edit/main/docs/src/{path}"
