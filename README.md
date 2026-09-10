@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Rust-%23!%5Bno__std%5D-DEA584.svg" alt="Rust no_std" />
   <img src="https://img.shields.io/badge/Target-ESP32%20%2F%20ESP--IDF%20v5.2-E7352C.svg" alt="ESP-IDF" />
   <img src="https://img.shields.io/badge/Tests-100%25%20Passing-brightgreen.svg" alt="Tests" />
-  <img src="https://img.shields.io/badge/Docs-mdBook-blueviolet.svg" alt="Docs: mdBook" />
+  <a href="https://dimaland1.github.io/Relinow/"><img src="https://img.shields.io/badge/Docs-GitHub%20Pages-blueviolet.svg" alt="Docs: GitHub Pages" /></a>
 </p>
 
 A lightweight, zero-allocation reliable transport protocol built on top of [ESP-NOW](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html) for embedded IoT systems.
