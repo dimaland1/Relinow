@@ -146,7 +146,7 @@ Full hardware instructions are in `examples/README.md`.
 - [x] UNRELIABLE mode (fire-and-forget with loss stats)
 - [x] Channel multiplexing and scheduler
 - [x] Fragmentation / reassembly
-- [ ] no_std Rust wrapper (API design in progress)
+- [x] no_std Rust wrapper (API design in progress)
 - [ ] Benchmarks and documentation
 
 ## Hardware
