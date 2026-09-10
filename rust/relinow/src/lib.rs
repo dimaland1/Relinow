@@ -1,5 +1,7 @@
 #![no_std]
 
-pub use relinow_sys::*;
+pub mod error;
+pub mod state;
 
-// TODO: Safe Rust abstractions
+pub use error::{Error, StateError};
+pub use state::RelinowState;
